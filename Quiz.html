@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Teacher-Controlled Quiz</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+
+  <div class="bg-white p-6 rounded-xl shadow-lg w-full max-w-md text-center">
+
+    <!-- Student Form -->
+    <div id="startForm">
+      <h2 class="text-xl font-bold mb-4">Student Login</h2>
+      <input type="text" id="name" placeholder="Your Name" class="mb-2 w-full border p-2 rounded"/><br/>
+      <input type="email" id="email" placeholder="Your Email" class="mb-4 w-full border p-2 rounded"/><br/>
+      <button onclick="waitForStart()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Submit</button>
+    </div>
+
+    <!-- Waiting Message -->
+    <div id="waitingScreen" class="hidden">
+      <p class="text-gray-700">Please wait. The teacher will start the quiz soon.</p>
+    </div>
+
+    <!-- Teacher Password Section -->
+    <div id="teacherPasswordSection" class="hidden">
+      <h3 class="text-lg font-bold mb-3">Teacher: Enter Password</h3>
+      <input type="password" id="teacherPassword" class="w-full border p-2 rounded mb-4" placeholder="Enter password"/>
+      <button onclick="checkTeacherPassword()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Submit</button>
+    </div>
+
+    <!-- Teacher Start Button (Visible after password is entered) -->
+    <div id="teacherStart" class="hidden mt-4">
+      <button onclick="startQuiz()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Start Quiz</button>
+    </div>
+
+    <!-- Quiz Interface -->
+    <div id="quizContainer" class="hidden text-left">
+      <div id="questionText" class="text-lg font-semibold mb-3"></div>
+      <div id="optionsContainer" class="mb-3"></div>
+      <div id="timer" class="text-red-600 font-bold mb-3"></div>
+      <button id="nextBtn" onclick="submitAnswer()" class="bg-blue-500 text-white px-4 py-2 rounded disabled:opacity-50" disabled>Next</button>
+    </div>
+
+    <!-- Thank You Message -->
+    <div id="thankYou" class="hidden">
+      <p class="text-xl font-bold">Thank you for completing the quiz!</p>
+    </div>
+
+  </div>
+
+  <script>
+    const questions = [
+      {
+        text: "What is 5 + 3?",
+        options: [
+          { text: "6", marks: 0 },
+          { text: "8", marks: 2 },
+          { text: "9", marks: 0 },
+          { text: "7", marks: 0 }
+        ]
+      },
+      {
+        text: "Capital of India?",
+        options: [
+          { text: "Delhi", marks: 2 },
+          { text: "Mumbai", marks: 0 },
+          { text: "Kolkata", marks: 0 },
+          { text: "Chennai", marks: 0 }
+        ]
+      },
+      {
+        text: "Sun rises from?",
+        options: [
+          { text: "North", marks: 0 },
+          { text: "South", marks: 0 },
+          { text: "East", marks: 2 },
+          { text: "West", marks: 0 }
+        ]
+      }
+    ];
+
+    let student = {};
+    let currentQuestion = 0;
+    let totalScore = 0;
+    let timer;
+    let timeLeft = 30;
+
+    function waitForStart() {
+      const name = document.getElementById('name').value.trim();
+      const email = document.getElementById('email').value.trim();
+      if (!name || !email) return alert("Please fill in both fields.");
+      student = { name, email };
+
+      document.getElementById('startForm').classList.add('hidden');
+      document.getElementById('waitingScreen').classList.remove('hidden');
+      document.getElementById('teacherPasswordSection').classList.remove('hidden');
+    }
+
+    function checkTeacherPassword() {
+      const enteredPassword = document.getElementById('teacherPassword').value;
+      const correctPassword = "quiz2025"; // You can change this password as needed
+
+      if (enteredPassword === correctPassword) {
+        document.getElementById('teacherPasswordSection').classList.add('hidden');
+        document.getElementById('teacherStart').classList.remove('hidden');
+      } else {
+        alert("Incorrect password. Please try again.");
+      }
+    }
+
+    function startQuiz() {
+      document.getElementById('waitingScreen').classList.add('hidden');
+      document.getElementById('teacherStart').classList.add('hidden');
+      document.getElementById('quizContainer').classList.remove('hidden');
+      showQuestion(currentQuestion);
+    }
+
+    function showQuestion(index) {
+      const q = questions[index];
+      timeLeft = 30;
+      document.getElementById('questionText').textContent = q.text;
+      document.getElementById('optionsContainer').innerHTML = '';
+      document.getElementById('nextBtn').disabled = true;
+
+      q.options.forEach((opt, i) => {
+        const label = document.createElement('label');
+        label.className = 'block border p-2 rounded hover:bg-gray-100 cursor-pointer';
+        label.innerHTML = `<input type="radio" name="option" value="${i}" class="mr-2"> ${opt.text}`;
+        label.addEventListener('change', () => {
+          document.getElementById('nextBtn').disabled = false;
+        });
+        document.getElementById('optionsContainer').appendChild(label);
+      });
+
+      document.getElementById('timer').textContent = `Time left: 30s`;
+      timer = setInterval(() => {
+        timeLeft--;
+        document.getElementById('timer').textContent = `Time left: ${timeLeft}s`;
+        if (timeLeft === 0) {
+          clearInterval(timer);
+          submitAnswer(true);
+        }
+      }, 1000);
+    }
+
+    function submitAnswer(auto = false) {
+      clearInterval(timer);
+      const selected = document.querySelector('input[name="option"]:checked');
+      const q = questions[currentQuestion];
+      const index = selected ? parseInt(selected.value) : -1;
+      if (index >= 0) {
+        totalScore += q.options[index].marks;
+      }
+      nextQuestion();
+    }
+
+    function nextQuestion() {
+      currentQuestion++;
+      if (currentQuestion < questions.length) {
+        showQuestion(currentQuestion);
+      } else {
+        document.getElementById('quizContainer').classList.add('hidden');
+        document.getElementById('thankYou').classList.remove('hidden');
+        sendToSheet();
+      }
+    }
+
+    function sendToSheet() {
+      const formData = {
+        name: student.name,
+        email: student.email,
+        score: totalScore
+      };
+      fetch("https://script.google.com/macros/s/AKfycbx35IYWKiuz3RePo1Z472xKB2kFNpMNF_wykgon6fyVa9AIdzshj2D2X7VPAVAGrA_v/exec", {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData)
+      });
+    }
+  </script>
+</body>
+</html>
