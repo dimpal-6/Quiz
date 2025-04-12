@@ -3,45 +3,29 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Live Quiz</title>
+  <title>Quiz Login and Start</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 min-h-screen p-6">
 
-  <div class="max-w-2xl mx-auto space-y-10">
+  <!-- Login Page (Name and Email) -->
+  <div id="loginPage" class="max-w-xl mx-auto space-y-8 bg-white p-6 rounded-xl shadow-md">
+    <h2 class="text-2xl font-bold mb-4">🧑‍🎓 Participant Login</h2>
+    <input type="text" id="name" placeholder="Enter Your Name" class="border rounded px-3 py-2 w-full mb-3" required>
+    <input type="email" id="email" placeholder="Enter Your Email" class="border rounded px-3 py-2 w-full mb-3" required>
+    <button onclick="startQuiz()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 w-full">Start Quiz</button>
+  </div>
 
-    <!-- PARTICIPANT SECTION -->
-    <div class="bg-white p-6 rounded-xl shadow-md" id="participantSection">
-      <h2 class="text-xl font-bold mb-4">🧑‍🎓 Participant Panel</h2>
-
-      <!-- Participant's Name and Email -->
-      <div id="participantDetails" class="space-y-4 mb-6">
-        <input type="text" id="participantName" placeholder="Enter Your Name" class="border rounded px-3 py-2 w-full mb-3" required>
-        <input type="email" id="participantEmail" placeholder="Enter Your Email" class="border rounded px-3 py-2 w-full mb-3" required>
-        <button onclick="saveParticipantInfo()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 w-full">Start Quiz</button>
-      </div>
-
-      <!-- Quiz Section (Hidden until quiz starts) -->
-      <div id="quizSection" class="hidden">
-        <p class="text-gray-600 mb-4">Waiting for teacher to start the quiz...</p>
-        <div id="quizContainer"></div>
-      </div>
-    </div>
-
-    <!-- TEACHER PANEL (Visible only to teacher) -->
-    <div class="bg-white p-6 rounded-xl shadow-md" id="teacherPanel">
-      <h2 class="text-xl font-bold mb-4">👩‍🏫 Teacher Panel</h2>
-      <input type="password" id="teacherPass" placeholder="Enter Password" class="border rounded px-3 py-2 w-full mb-3">
-      <button onclick="revealLink()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 w-full">Start Quiz</button>
-      <p id="linkSection" class="text-sm mt-2 text-blue-600 hidden">
-        ✅ Share this link with participants:<br>
-        <code id="quizLink" class="bg-blue-100 p-1 rounded block mt-2"></code>
-      </p>
-    </div>
-
+  <!-- Quiz Page (After Login) -->
+  <div id="quizPage" class="hidden">
+    <h2 class="text-2xl font-bold mb-4">📝 Quiz</h2>
+    <div id="questionContainer"></div>
+    <div id="timer" class="text-red-500 font-semibold mb-4"></div>
+    <button id="nextBtn" onclick="nextQuestion()" class="bg-blue-500 text-white px-4 py-2 rounded-xl hover:bg-blue-600 disabled:opacity-50" disabled>Next</button>
   </div>
 
   <script>
+    // Sample Questions and Options
     const questions = [
       {
         text: "What is the capital of France?",
@@ -77,29 +61,38 @@
 
     let currentQuestion = 0;
     let totalScore = 0;
+    let timeLeft = 0;
     let timerInterval;
+    let name, email;
 
-    // Save Participant's Name and Email before starting the quiz
-    function saveParticipantInfo() {
-      const name = document.getElementById("participantName").value;
-      const email = document.getElementById("participantEmail").value;
-      if (name && email) {
-        document.getElementById("participantDetails").classList.add("hidden");
-        document.getElementById("quizSection").classList.remove("hidden");
-        showQuestion(currentQuestion);
-      } else {
-        alert("Please enter both name and email!");
+    // Start Quiz - Save Participant's Name and Email, then Redirect to Quiz Page
+    function startQuiz() {
+      name = document.getElementById('name').value;
+      email = document.getElementById('email').value;
+
+      if (!name || !email) {
+        alert('Please fill in your name and email.');
+        return;
       }
+
+      // Store participant's data for later
+      sessionStorage.setItem('name', name);
+      sessionStorage.setItem('email', email);
+
+      // Hide login page, show quiz page
+      document.getElementById('loginPage').classList.add('hidden');
+      document.getElementById('quizPage').classList.remove('hidden');
+
+      showQuestion(currentQuestion);
     }
 
+    // Display Question and Options
     function showQuestion(index) {
+      clearInterval(timerInterval);
       const q = questions[index];
-      const container = document.getElementById("quizContainer");
-      container.innerHTML = `
+      document.getElementById('questionContainer').innerHTML = `
         <h3 class="text-lg font-semibold mb-2">${q.text}</h3>
         <div id="options" class="space-y-2 mb-4"></div>
-        <div id="timer" class="text-red-500 font-bold mb-4"></div>
-        <button id="nextBtn" disabled class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Next</button>
       `;
 
       const optionsDiv = document.getElementById("options");
@@ -113,80 +106,67 @@
         optionsDiv.appendChild(label);
       });
 
-      document.getElementById("nextBtn").onclick = submitAnswer;
-
-      let timeLeft = q.time;
-      document.getElementById("timer").textContent = `⏳ Time left: ${timeLeft}s`;
-      clearInterval(timerInterval);
+      timeLeft = q.time;
+      document.getElementById('timer').textContent = `⏳ Time left: ${timeLeft}s`;
+      
       timerInterval = setInterval(() => {
         timeLeft--;
-        document.getElementById("timer").textContent = `⏳ Time left: ${timeLeft}s`;
+        document.getElementById('timer').textContent = `⏳ Time left: ${timeLeft}s`;
         if (timeLeft <= 0) {
           clearInterval(timerInterval);
-          submitAnswer(true); // auto-submit
+          nextQuestion(true); // auto-submit if time runs out
         }
       }, 1000);
     }
 
-    function submitAnswer(auto = false) {
+    // Move to Next Question
+    function nextQuestion(auto = false) {
       const selected = document.querySelector('input[name="option"]:checked');
       const selectedIndex = selected ? parseInt(selected.value) : null;
       const q = questions[currentQuestion];
+
       if (selectedIndex !== null) {
         totalScore += q.options[selectedIndex].marks;
       }
+
       currentQuestion++;
       if (currentQuestion < questions.length) {
         showQuestion(currentQuestion);
       } else {
-        document.getElementById("quizContainer").innerHTML = `<p class="text-xl font-semibold">✅ Thank you for completing the quiz!</p>`;
-        
-        // Send data to Google Sheets
-        sendToGoogleSheets();
-        console.log("🔒 Final Score (hidden):", totalScore);
+        endQuiz();
       }
     }
 
+    // End Quiz and Submit Data to Google Sheets
+    function endQuiz() {
+      // Show thank you message
+      document.getElementById('questionContainer').innerHTML = `<p class="text-xl font-semibold">✅ Thank you for completing the quiz!</p>`;
+      
+      // Send data to Google Sheets
+      sendToGoogleSheets();
+
+      console.log("Quiz completed. Participant's score:", totalScore);
+    }
+
+    // Send Results to Google Sheets
     function sendToGoogleSheets() {
-      const name = document.getElementById("participantName").value;
-      const email = document.getElementById("participantEmail").value;
+      const participantName = sessionStorage.getItem('name');
+      const participantEmail = sessionStorage.getItem('email');
 
-      // The URL from the Apps Script Web App deployment
-      const scriptUrl = "https://script.google.com/macros/s/AKfycbx35IYWKiuz3RePo1Z472xKB2kFNpMNF_wykgon6fyVa9AIdzshj2D2X7VPAVAGrA_v/exec";  // Replace this with your Google Apps Script URL
+      const scriptUrl = 'https://script.google.com/macros/s/AKfycbzmcCl7V8Dj6xaCidhjwQIc8be0h8YR_HXQM3NM5329fjB5RjfgQh46hKQQqupCcvSamA/exec';  // Replace with your Apps Script URL
 
-      // Send POST request with participant data to Google Sheets
       fetch(scriptUrl, {
-        method: "POST",
+        method: 'POST',
         body: new URLSearchParams({
-          name: name,
-          email: email,
+          name: participantName,
+          email: participantEmail,
           score: totalScore
         })
       })
       .then(response => response.text())
-      .then(result => console.log("Data submitted to Google Sheets:", result))
-      .catch(error => console.error("Error:", error));
+      .then(result => console.log('Data submitted to Google Sheets:', result))
+      .catch(error => console.error('Error submitting data:', error));
     }
-
-    function revealLink() {
-      const pass = document.getElementById("teacherPass").value;
-      if (pass === "secret123") {
-        const url = window.location.href.split("?")[0] + "?start=true";
-        document.getElementById("quizLink").textContent = url;
-        document.getElementById("linkSection").classList.remove("hidden");
-      } else {
-        alert("❌ Incorrect password!");
-      }
-    }
-
-    window.onload = () => {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("start") === "true") {
-        document.getElementById("teacherPanel").classList.add("hidden");
-        document.getElementById("quizSection").classList.remove("hidden");
-        showQuestion(currentQuestion);
-      }
-    };
   </script>
 
 </body>
