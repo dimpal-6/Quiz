@@ -10,8 +10,26 @@
 
   <div class="max-w-2xl mx-auto space-y-10">
 
-    <!-- TEACHER SECTION -->
-    <div class="bg-white p-6 rounded-xl shadow-md">
+    <!-- PARTICIPANT SECTION -->
+    <div class="bg-white p-6 rounded-xl shadow-md" id="participantSection">
+      <h2 class="text-xl font-bold mb-4">🧑‍🎓 Participant Panel</h2>
+
+      <!-- Participant's Name and Email -->
+      <div id="participantDetails" class="space-y-4 mb-6">
+        <input type="text" id="participantName" placeholder="Enter Your Name" class="border rounded px-3 py-2 w-full mb-3" required>
+        <input type="email" id="participantEmail" placeholder="Enter Your Email" class="border rounded px-3 py-2 w-full mb-3" required>
+        <button onclick="saveParticipantInfo()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 w-full">Start Quiz</button>
+      </div>
+
+      <!-- Quiz Section (Hidden until quiz starts) -->
+      <div id="quizSection" class="hidden">
+        <p class="text-gray-600 mb-4">Waiting for teacher to start the quiz...</p>
+        <div id="quizContainer"></div>
+      </div>
+    </div>
+
+    <!-- TEACHER PANEL (Visible only to teacher) -->
+    <div class="bg-white p-6 rounded-xl shadow-md" id="teacherPanel">
       <h2 class="text-xl font-bold mb-4">👩‍🏫 Teacher Panel</h2>
       <input type="password" id="teacherPass" placeholder="Enter Password" class="border rounded px-3 py-2 w-full mb-3">
       <button onclick="revealLink()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 w-full">Start Quiz</button>
@@ -19,14 +37,6 @@
         ✅ Share this link with participants:<br>
         <code id="quizLink" class="bg-blue-100 p-1 rounded block mt-2"></code>
       </p>
-    </div>
-
-    <!-- PARTICIPANT SECTION -->
-    <div class="bg-white p-6 rounded-xl shadow-md" id="quizSection">
-      <h2 class="text-xl font-bold mb-4">🧑‍🎓 Participant Panel</h2>
-      <div id="quizContainer">
-        <p class="text-gray-600">Waiting for teacher to start the quiz...</p>
-      </div>
     </div>
 
   </div>
@@ -68,6 +78,19 @@
     let currentQuestion = 0;
     let totalScore = 0;
     let timerInterval;
+
+    // Save Participant's Name and Email before starting the quiz
+    function saveParticipantInfo() {
+      const name = document.getElementById("participantName").value;
+      const email = document.getElementById("participantEmail").value;
+      if (name && email) {
+        document.getElementById("participantDetails").classList.add("hidden");
+        document.getElementById("quizSection").classList.remove("hidden");
+        showQuestion(currentQuestion);
+      } else {
+        alert("Please enter both name and email!");
+      }
+    }
 
     function showQuestion(index) {
       const q = questions[index];
@@ -117,8 +140,32 @@
         showQuestion(currentQuestion);
       } else {
         document.getElementById("quizContainer").innerHTML = `<p class="text-xl font-semibold">✅ Thank you for completing the quiz!</p>`;
+        
+        // Send data to Google Sheets
+        sendToGoogleSheets();
         console.log("🔒 Final Score (hidden):", totalScore);
       }
+    }
+
+    function sendToGoogleSheets() {
+      const name = document.getElementById("participantName").value;
+      const email = document.getElementById("participantEmail").value;
+
+      // The URL from the Apps Script Web App deployment
+      const scriptUrl = "https://script.google.com/macros/s/AKfycbx35IYWKiuz3RePo1Z472xKB2kFNpMNF_wykgon6fyVa9AIdzshj2D2X7VPAVAGrA_v/exec";  // Replace this with your Google Apps Script URL
+
+      // Send POST request with participant data to Google Sheets
+      fetch(scriptUrl, {
+        method: "POST",
+        body: new URLSearchParams({
+          name: name,
+          email: email,
+          score: totalScore
+        })
+      })
+      .then(response => response.text())
+      .then(result => console.log("Data submitted to Google Sheets:", result))
+      .catch(error => console.error("Error:", error));
     }
 
     function revealLink() {
@@ -132,10 +179,11 @@
       }
     }
 
-    // If user opened the quiz via special ?start=true URL
     window.onload = () => {
       const params = new URLSearchParams(window.location.search);
       if (params.get("start") === "true") {
+        document.getElementById("teacherPanel").classList.add("hidden");
+        document.getElementById("quizSection").classList.remove("hidden");
         showQuestion(currentQuestion);
       }
     };
